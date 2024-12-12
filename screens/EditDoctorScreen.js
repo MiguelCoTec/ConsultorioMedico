@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, Button, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 const db = getFirestore();
@@ -76,7 +76,7 @@ const EditDoctorScreen = () => {
   const handleDelete = async () => {
     try {
       const docRef = doc(db, 'Doctores', doctorId);
-      await updateDoc(docRef, { deleted: true }); // Marcar como eliminado en lugar de eliminar completamente
+      await deleteDoc(docRef); // Eliminar completamente el documento
       Alert.alert('Éxito', 'Doctor eliminado correctamente');
       navigation.goBack();
     } catch (error) {

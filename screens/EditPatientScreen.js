@@ -73,7 +73,7 @@ const EditPatientScreen = ({ route, navigation }) => {
   const handleDelete = async () => {
     try {
       const docRef = doc(db, 'Pacientes', patientId);
-      await deleteDoc(docRef);
+      await deleteDoc(docRef); // Eliminar completamente el documento
       Alert.alert('Éxito', 'Paciente eliminado correctamente');
       navigation.goBack();
     } catch (error) {
@@ -137,7 +137,6 @@ const EditPatientScreen = ({ route, navigation }) => {
           value={formData.bloodType}
           onChangeText={(value) => handleInputChange('bloodType', value)}
         />
-
         <TextInput
           placeholder="Correo"
           style={styles.input}
