@@ -20,7 +20,7 @@ const AppNavigator = () => {
           component={LoginScreen}
           options={{ headerShown: false }}
         />
-        {/* Pasar los pacientes, doctores y citas como parámetros */}
+        
         <Stack.Screen
           name="Home"
           component={HomeScreen}

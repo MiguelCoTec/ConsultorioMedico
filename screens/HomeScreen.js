@@ -1,8 +1,9 @@
+// HomeScreen.js
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, FlatList, Button, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
+import HomeController from '../controllers/HomeController';
 
 const HomeScreen = () => {
   const [patients, setPatients] = useState([]);
@@ -13,25 +14,10 @@ const HomeScreen = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const db = getFirestore();
-
-      try {
-        if (activeView === 'patients') {
-          const patientsCollection = collection(db, 'Pacientes');
-          const snapshot = await getDocs(patientsCollection);
-          const patientsList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-          setPatients(patientsList);
-        } else if (activeView === 'doctors') {
-          const doctorsCollection = collection(db, 'Doctores');
-          const snapshot = await getDocs(doctorsCollection);
-          const doctorsList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-          setDoctors(doctorsList);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
-      }
+      await HomeController.fetchData(activeView); 
+      setPatients(HomeController.getPatients());
+      setDoctors(HomeController.getDoctors());
+      setIsLoading(HomeController.getIsLoading());
     };
 
     fetchData();

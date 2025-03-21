@@ -1,10 +1,9 @@
+// EditDoctorScreen.js
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, Button, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getFirestore, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useNavigation, useRoute } from '@react-navigation/native';
-
-const db = getFirestore();
+import DoctorController from '../controllers/DoctorController';
 
 const EditDoctorScreen = () => {
   const route = useRoute();
@@ -23,17 +22,11 @@ const EditDoctorScreen = () => {
 
   useEffect(() => {
     const fetchDoctorData = async () => {
-      try {
-        const docRef = doc(db, 'Doctores', doctorId);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          setFormData(docSnap.data());
-        } else {
-          Alert.alert('Error', 'Doctor no encontrado');
-        }
-      } catch (error) {
-        console.error('Error fetching doctor data:', error);
+      const result = await DoctorController.fetchDoctor(doctorId);
+      if (result.success) {
+        setFormData(result.data);
+      } else {
+        Alert.alert('Error', result.message);
       }
     };
 
@@ -47,41 +40,22 @@ const EditDoctorScreen = () => {
   };
 
   const handleUpdate = async () => {
-    const {
-      firstName,
-      lastName,
-      email,
-      phone,
-      specialty,
-      licenseNumber,
-      consultationPrice,
-    } = formData;
-
-    if (!firstName || !lastName || !email || !phone || !specialty || !licenseNumber || !consultationPrice) {
-      Alert.alert('Error', 'Todos los campos son obligatorios');
-      return;
-    }
-
-    try {
-      const docRef = doc(db, 'Doctores', doctorId);
-      await updateDoc(docRef, formData);
-      Alert.alert('Éxito', 'Doctor actualizado correctamente');
+    const result = await DoctorController.updateDoctor(doctorId, formData);
+    if (result.success) {
+      Alert.alert('Éxito', result.message);
       navigation.goBack();
-    } catch (error) {
-      Alert.alert('Error', 'Hubo un problema al actualizar los datos');
-      console.error('Error updating doctor:', error);
+    } else {
+      Alert.alert('Error', result.message);
     }
   };
 
   const handleDelete = async () => {
-    try {
-      const docRef = doc(db, 'Doctores', doctorId);
-      await deleteDoc(docRef); // Eliminar completamente el documento
-      Alert.alert('Éxito', 'Doctor eliminado correctamente');
+    const result = await DoctorController.deleteDoctor(doctorId);
+    if (result.success) {
+      Alert.alert('Éxito', result.message);
       navigation.goBack();
-    } catch (error) {
-      Alert.alert('Error', 'Hubo un problema al eliminar el doctor');
-      console.error('Error deleting doctor:', error);
+    } else {
+      Alert.alert('Error', result.message);
     }
   };
 

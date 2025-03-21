@@ -1,12 +1,9 @@
+// LoginScreen.js
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, Button, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
-import { auth } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
-
-const db = getFirestore();
+import LoginController from '../controllers/LoginController';
 
 const LoginScreen = ({ navigation }) => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -29,57 +26,22 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     const { email, password } = formData;
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      Alert.alert('Inicio de sesión exitoso');
+    const result = await LoginController.login(email, password);
+    if (result.success) {
+      Alert.alert('Éxito', result.message);
       navigation.navigate('Home');
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Error', result.message);
     }
   };
 
   const handleRegister = async () => {
-    const {
-      email,
-      password,
-      firstName,
-      lastName,
-      phone,
-      birthDate,
-      gender,
-      height,
-      weight,
-      bloodType,
-    } = formData;
-
-    if (!email || !password || !firstName || !lastName || !phone || !birthDate || !gender || !height || !weight || !bloodType) {
-      Alert.alert('Error', 'Todos los campos son obligatorios');
-      return;
-    }
-
-    try {
-      // Crear usuario en Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-
-      // Guardar los datos en Firestore
-      const userId = userCredential.user.uid;
-      await setDoc(doc(db, 'Pacientes', userId), {
-        firstName,
-        lastName,
-        email,
-        phone,
-        birthDate,
-        gender,
-        height,
-        weight,
-        bloodType,
-        createdAt: new Date(),
-      });
-
-      Alert.alert('Registro exitoso', 'Usuario creado correctamente');
-      setIsRegistering(false); // Volver al formulario de login
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    const result = await LoginController.register(formData);
+    if (result.success) {
+      Alert.alert('Éxito', result.message);
+      setIsRegistering(false);
+    } else {
+      Alert.alert('Error', result.message);
     }
   };
 

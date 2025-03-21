@@ -1,12 +1,10 @@
+// AddPatientScreen.js
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, Button, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
-import { auth } from '../firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
-
-const db = getFirestore();
+import { useNavigation } from '@react-navigation/native';
+import EditPatientController from '../controllers/EditPatientController';
 
 const AddPatientScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -27,47 +25,13 @@ const AddPatientScreen = ({ navigation }) => {
   };
 
   const handleRegister = async () => {
-    const {
-      email,
-      password,
-      firstName,
-      lastName,
-      phone,
-      birthDate,
-      gender,
-      height,
-      weight,
-      bloodType,
-    } = formData;
-
-    if (!email || !password || !firstName || !lastName || !phone || !birthDate || !gender || !height || !weight || !bloodType) {
-      Alert.alert('Error', 'Todos los campos son obligatorios');
-      return;
-    }
-
-    try {
-      // Crear usuario en Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-
-      // Guardar los datos en Firestore
-      const userId = userCredential.user.uid;
-      await setDoc(doc(db, 'Pacientes', userId), {
-        firstName,
-        lastName,
-        email,
-        phone,
-        birthDate,
-        gender,
-        height,
-        weight,
-        bloodType,
-        createdAt: new Date(),
-      });
-
-      Alert.alert('Registro exitoso', 'Paciente agregado correctamente');
-      navigation.goBack(); // Regresa a la pantalla anterior (HomeScreen)
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    console.log("Datos del formulario: ", formData)
+    const result = await EditPatientController.registerPatient(formData);
+    if (result.success) {
+      Alert.alert('Éxito', result.message);
+      navigation.goBack();
+    } else {
+      Alert.alert('Error', result.message);
     }
   };
 

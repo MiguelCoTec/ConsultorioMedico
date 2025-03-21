@@ -1,11 +1,13 @@
+// EditPatientScreen.js
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, Button, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getFirestore, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import EditPatientController from '../controllers/EditPatientController';
 
-const db = getFirestore();
-
-const EditPatientScreen = ({ route, navigation }) => {
+const EditPatientScreen = () => {
+  const route = useRoute();
+  const navigation = useNavigation();
   const { patientId } = route.params;
   const [formData, setFormData] = useState({
     firstName: '',
@@ -21,17 +23,11 @@ const EditPatientScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     const fetchPatientData = async () => {
-      try {
-        const docRef = doc(db, 'Pacientes', patientId);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          setFormData(docSnap.data());
-        } else {
-          Alert.alert('Error', 'Paciente no encontrado');
-        }
-      } catch (error) {
-        Alert.alert('Error', error.message);
+      const result = await EditPatientController.fetchPatient(patientId);
+      if (result.success) {
+        setFormData(result.data);
+      } else {
+        Alert.alert('Error', result.message);
       }
     };
 
@@ -60,24 +56,22 @@ const EditPatientScreen = ({ route, navigation }) => {
       return;
     }
 
-    try {
-      const docRef = doc(db, 'Pacientes', patientId);
-      await updateDoc(docRef, formData);
-      Alert.alert('Éxito', 'Paciente actualizado correctamente');
+    const result = await EditPatientController.updatePatient(patientId, formData);
+    if (result.success) {
+      Alert.alert('Éxito', result.message);
       navigation.goBack();
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Error', result.message);
     }
   };
 
   const handleDelete = async () => {
-    try {
-      const docRef = doc(db, 'Pacientes', patientId);
-      await deleteDoc(docRef); // Eliminar completamente el documento
-      Alert.alert('Éxito', 'Paciente eliminado correctamente');
+    const result = await EditPatientController.deletePatient(patientId);
+    if (result.success) {
+      Alert.alert('Éxito', result.message);
       navigation.goBack();
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Error', result.message);
     }
   };
 

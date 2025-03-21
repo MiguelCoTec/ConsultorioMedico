@@ -1,11 +1,9 @@
+// AddDoctor.js
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, Button, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { auth } from '../firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
-
-const db = getFirestore();
+import { useNavigation } from '@react-navigation/native';
+import DoctorController from '../controllers/DoctorController';
 
 const AddDoctor = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -24,43 +22,12 @@ const AddDoctor = ({ navigation }) => {
   };
 
   const handleRegister = async () => {
-    const {
-      email,
-      password,
-      firstName,
-      lastName,
-      phone,
-      specialty,
-      licenseNumber,
-      consultationPrice,
-    } = formData;
-
-    if (!email || !password || !firstName || !lastName || !phone || !specialty || !licenseNumber || !consultationPrice) {
-      Alert.alert('Error', 'Todos los campos son obligatorios');
-      return;
-    }
-
-    try {
-      // Crear usuario en Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-
-      // Guardar los datos en Firestore
-      const userId = userCredential.user.uid;
-      await setDoc(doc(db, 'Doctores', userId), {
-        firstName,
-        lastName,
-        email,
-        phone,
-        specialty,
-        licenseNumber,
-        consultationPrice,
-        createdAt: new Date(),
-      });
-
-      Alert.alert('Registro exitoso', 'Doctor agregado correctamente');
-      navigation.goBack(); // Regresa a la pantalla anterior (HomeScreen)
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    const result = await DoctorController.registerDoctor(formData);
+    if (result.success) {
+      Alert.alert('Éxito', result.message);
+      navigation.goBack();
+    } else {
+      Alert.alert('Error', result.message);
     }
   };
 
