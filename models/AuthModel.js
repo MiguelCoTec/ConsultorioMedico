@@ -26,6 +26,7 @@ class AuthModel {
         rol = 'admin';
       }
       
+      console.log(rol);
       return { success: true, message: 'Inicio de sesión exitoso', rol: rol };
     } catch (error) {
       return { success: false, message: error.message, rol: 'Error' };
