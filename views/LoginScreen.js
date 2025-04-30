@@ -26,12 +26,28 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     const { email, password } = formData;
-    const result = await LoginController.login(email, password);
-    if (result.success) {
-      Alert.alert('Éxito', result.message);
-      navigation.navigate('Home');
-    } else {
-      Alert.alert('Error', result.message);
+    try{
+      const result = await LoginController.login(email, password);
+      if (result.success) {
+        Alert.alert('Éxito', result.message);
+        //navigation.navigate('Home');
+
+        if(result.rol === 'doctor'){
+          navigation.replace('DoctorDashboard');
+        } else if(result.rol === 'paciente'){
+          navigation.replace('PatientDashboard');
+        } else if(result.rol === 'admin'){
+          navigation.replace('home');
+        } else{
+          navigation.replace('home');
+        }
+
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    }
+    catch (error) {
+      Alert.alert('Error', error.message);
     }
   };
 
