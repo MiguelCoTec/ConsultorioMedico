@@ -12,6 +12,9 @@ import EditPatientScreen from '../views/EditPatientScreen';
 import EditDoctorScreen from '../views/EditDoctorScreen';
 import DoctorDashboardScreen from '../views/DoctorDashboardScreen';
 import PatientDashboardScreen from '../views/PatientDashboardScreen';
+import DoctorAppointmentsScreen from '../views/DoctorAppointmentsScreen';
+import AppointmentDetailScreen from '../views/AppointmentDetailScreen';
+//import AddAppointmentScreen from '../views/AddAppointmentScreen';
 //import BookAppointmentScreen from '../views/BookAppointmentSreen';
 
 const Stack = createStackNavigator();
@@ -94,7 +97,9 @@ const AppNavigator = () => {
         <Stack.Screen name="AddDoctor" component={AddDoctor} options={{ title: 'Agregar Doctor' }} />
         <Stack.Screen name="EditPatient" component={EditPatientScreen} options={{ title: 'Editar Paciente' }} />
         <Stack.Screen name="EditDoctor" component={EditDoctorScreen} options={{ title: 'Editar Paciente' }} />
-
+        <Stack.Screen name="DoctorAppointments" component={DoctorAppointmentsScreen} />
+        <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
+        
         
       </Stack.Navigator>
     </NavigationContainer>

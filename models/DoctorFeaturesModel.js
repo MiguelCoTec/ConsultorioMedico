@@ -1,48 +1,9 @@
 // DoctorFeaturesModel.js
-import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 
 const db = getFirestore();
 
 class DoctorFeaturesModel {
-  /*
-  async searchPatients(searchTerm) {
-    try {
-      const patientsCollection = collection(db, 'Pacientes');
-      const q = query(
-        patientsCollection,
-        where('firstName', '>=', searchTerm),
-        where('firstName', '<=', searchTerm + '\uf8ff')
-      );
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        return { success: true, data: [], message: 'No se encontraron pacientes' };
-      }
-
-      const patients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      return { success: true, data: patients };
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  }
-
-  async getDoctorAppointments(doctorId) {
-    try {
-      const appointmentsCollection = collection(db, 'Citas');
-      const q = query(appointmentsCollection, where('userId', '==', doctorId));
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        return { success: true, data: [], message: 'No hay citas programadas' };
-      }
-
-      const appointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      return { success: true, data: appointments };
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  }*/
-
   async searchPatients(searchTerm) {
     try {
       const searchTermLower = searchTerm.toLowerCase();
@@ -78,7 +39,7 @@ class DoctorFeaturesModel {
   async getDoctorAppointments(doctorId) {
     try {
       const appointmentsRef = collection(db, 'Citas');
-      const q = query(appointmentsRef, where('doctorId', '==', doctorId));
+      const q = query(appointmentsRef, where('iddoctor', '==', doctorId));
       const querySnapshot = await getDocs(q);
       
       const appointments = [];
@@ -92,6 +53,25 @@ class DoctorFeaturesModel {
       };
     } catch (error) {
       console.error('Error getting doctor appointments:', error);
+      return {
+        success: false,
+        message: error.message
+      };
+    }
+  }
+
+  //Actualizar Citas
+  async updateAppointment(appointmentId, updatedData) {
+    try {
+      const appointmentRef = doc(db, 'Citas', appointmentId);
+      await updateDoc(appointmentRef, updatedData);
+      
+      return {
+        success: true,
+        message: 'Cita actualizada correctamente'
+      };
+    } catch (error) {
+      console.error('Error updating appointment:', error);
       return {
         success: false,
         message: error.message
@@ -157,6 +137,80 @@ class DoctorFeaturesModel {
       return {
         success: false,
         message: "Error al actualizar el perfil: " + error.message
+      };
+    }
+  }
+
+  // Para agregar citas
+
+  async searchPatients(searchTerm) {
+    try {
+      const searchTermLower = searchTerm.toLowerCase();
+      
+      // Primero buscar por nombre
+      const patientsRef = collection(db, 'Pacientes');
+      const querySnapshot = await getDocs(patientsRef);
+      
+      const patients = [];
+      querySnapshot.forEach((doc) => {
+        const patientData = doc.data();
+        // Verificar si el nombre o correo contiene el término de búsqueda
+        if (
+          (patientData.firstName && patientData.firstName.toLowerCase().includes(searchTermLower)) ||
+          (patientData.email && patientData.email.toLowerCase().includes(searchTermLower))
+        ) {
+          patients.push({
+            id: doc.id,
+            ...patientData
+          });
+        }
+      });
+      
+      return {
+        success: true,
+        data: patients
+      };
+    } catch (error) {
+      console.error('Error searching patients:', error);
+      return {
+        success: false,
+        message: error.message
+      };
+    }
+  }
+
+  async createAppointment(appointmentData) {
+    try {
+      // Convertir la fecha a Timestamp de Firestore si es un objeto Date
+      const { fecha, ...otherData } = appointmentData;
+      
+      // Importar Timestamp de Firebase si aún no está importado
+      const { Timestamp } = require('firebase/firestore');
+      
+      // Crear un objeto con la fecha convertida a Timestamp
+      const firestoreData = {
+        ...otherData,
+        fecha: fecha instanceof Date ? Timestamp.fromDate(fecha) : fecha,
+        fechaCreacion: Timestamp.now() // Añadir la fecha de creación
+      };
+      
+      // Añadir la cita a Firestore
+      const citasRef = collection(db, 'Citas');
+      const docRef = await addDoc(citasRef, firestoreData);
+      
+      return {
+        success: true,
+        data: {
+          id: docRef.id,
+          ...firestoreData
+        },
+        message: 'Cita creada con éxito'
+      };
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      return {
+        success: false,
+        message: error.message
       };
     }
   }

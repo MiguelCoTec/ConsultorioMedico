@@ -23,6 +23,19 @@ class DoctorFeaturesController {
   async updateDoctorProfile(doctorId, profileData) {
     return await this.model.updateDoctorProfile(doctorId, profileData);
   }
+
+  async updateAppointment(appointmentId, updatedData) {
+    return await this.model.updateAppointment(appointmentId, updatedData);
+  }
+
+  //Para Agregar Citas
+  async searchPatients(searchTerm) {
+    return await this.model.searchPatients(searchTerm);
+  }
+  
+  async createAppointment(appointmentData) {
+    return await this.model.createAppointment(appointmentData);
+  }
 }
 
 export default new DoctorFeaturesController();

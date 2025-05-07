@@ -70,15 +70,16 @@ const DoctorDashboardScreen = () => {
   const handleViewAppointments = async () => {
     if (!doctorId) return;
     
-    /*
+    
     const result = await DoctorFeaturesController.getDoctorAppointments(doctorId);
     if (result.success) {
       navigation.navigate('DoctorAppointments', { appointments: result.data });
     } else {
       Alert.alert('Error', result.message);
-    }*/
-    Alert.alert("Funcionalidad en proceso");
-    console.log("Funcionalidad en proceso");
+      console.log('Error', result.message);
+    }
+    //Alert.alert("Funcionalidad en proceso");
+    //console.log("Funcionalidad en proceso");
   };
 
   const handleAddAppointment = () => {
