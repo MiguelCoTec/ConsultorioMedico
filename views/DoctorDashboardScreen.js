@@ -83,10 +83,10 @@ const DoctorDashboardScreen = () => {
   };
 
   const handleAddAppointment = () => {
-    //navigation.navigate('AddAppointment');
+    navigation.navigate('AddAppointment');
 
-    Alert.alert("Funcionalidad en proceso");
-    console.log("Funcionalidad en proceso");
+    //Alert.alert("Funcionalidad en proceso");
+    //console.log("Funcionalidad en proceso");
   };
 
   // Función para abrir el modal de edición de perfil

@@ -91,7 +91,7 @@ class PatientFeaturesModel {
   async getPatientAppointments(patientId) {
     try {
       const appointmentsRef = collection(db, 'Citas');
-      const q = query(appointmentsRef, where('patientId', '==', patientId));
+      const q = query(appointmentsRef, where('idpaciente', '==', patientId));
       const querySnapshot = await getDocs(q);
       
       const appointments = [];

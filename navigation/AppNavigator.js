@@ -14,7 +14,10 @@ import DoctorDashboardScreen from '../views/DoctorDashboardScreen';
 import PatientDashboardScreen from '../views/PatientDashboardScreen';
 import DoctorAppointmentsScreen from '../views/DoctorAppointmentsScreen';
 import AppointmentDetailScreen from '../views/AppointmentDetailScreen';
-//import AddAppointmentScreen from '../views/AddAppointmentScreen';
+import AddAppointmentScreen from '../views/AddAppointmentScreen';
+import PatientAppointmentsScreen from '../views/PatientAppointmentsScreen';
+import PatientAppointmentDetailScreen from '../views/PatientAppointmentDetailScreen';
+import BookAppointmentScreen from '../views/BookAppointmentSreen';
 //import BookAppointmentScreen from '../views/BookAppointmentSreen';
 
 const Stack = createStackNavigator();
@@ -99,7 +102,10 @@ const AppNavigator = () => {
         <Stack.Screen name="EditDoctor" component={EditDoctorScreen} options={{ title: 'Editar Paciente' }} />
         <Stack.Screen name="DoctorAppointments" component={DoctorAppointmentsScreen} />
         <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
-        
+        <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} />
+        <Stack.Screen name="PatientAppointments" component={PatientAppointmentsScreen} />
+        <Stack.Screen name="PatientAppointmentDetail" component={PatientAppointmentDetailScreen} />
+        <Stack.Screen name="BookAppointment" component={BookAppointmentScreen} />
         
       </Stack.Navigator>
     </NavigationContainer>

@@ -13,34 +13,29 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { auth } from '../firebase';
-import DoctorFeaturesController from '../controllers/DoctorFeaturesController';
-import { doc } from 'firebase/firestore';
+import PatientFeaturesController from '../controllers/PatientFeaturesController';
 
-const DoctorAppointmentsScreen = () => {
+const PatientAppointmentsScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [doctorId, setDoctorId] = useState(auth.currentUser?.uid);
-  //const { appointments: initialAppointments, doctorId } = route.params || {};
+  const [patientId, setPatientId] = useState(auth.currentUser?.uid);
 
   useEffect(() => {
-    if (doctorId) {
+    if (patientId) {
       loadAppointments();
-      //console.log("Entra en el segundo", doctorId);
     } else {
       setLoading(false);
-      //console.log("Entra en el tercero", doctorId);
     }
-  }, [doctorId]);
+  }, [patientId]);
 
   const loadAppointments = async () => {
-    
     try {
       setLoading(true);
-      console.log(doctorId);
-      const result = await DoctorFeaturesController.getDoctorAppointments(doctorId);
+      console.log(patientId);
+      const result = await PatientFeaturesController.getPatientAppointments(patientId);
       
       if (result.success) {
         setAppointments(result.data);
@@ -49,7 +44,7 @@ const DoctorAppointmentsScreen = () => {
       }
     } catch (error) {
       Alert.alert('Error', 'Ha ocurrido un error al cargar las citas');
-      console.log('Error cargando citas:', error);
+      console.log('Error cargando citas del paciente:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -97,8 +92,8 @@ const DoctorAppointmentsScreen = () => {
   const renderAppointmentItem = ({ item }) => (
     <View style={styles.appointmentCard}>
       <View style={styles.appointmentHeader}>
-        <Text style={styles.patientName}>
-          {item.nombrePaciente || 'Paciente sin nombre'}
+        <Text style={styles.doctorName}>
+          {item.nombreDoctor || 'Doctor sin nombre'}
         </Text>
         <Text style={[styles.appointmentStatus, getStatusStyle(item.estatus)]}>
           {item.estatus || 'Estado no definido'}
@@ -114,6 +109,11 @@ const DoctorAppointmentsScreen = () => {
         <Ionicons name="medical-outline" size={16} color="#555" />
         <Text style={styles.detailText}>Motivo: {item.motivo || 'No especificado'}</Text>
       </View>
+
+      <View style={styles.appointmentDetail}>
+        <Ionicons name="location-outline" size={16} color="#555" />
+        <Text style={styles.detailText}>Consultorio: {item.consultorio || 'No especificado'}</Text>
+      </View>
       
       {item.notas && (
         <View style={styles.appointmentDetail}>
@@ -124,7 +124,7 @@ const DoctorAppointmentsScreen = () => {
       
       <TouchableOpacity 
         style={styles.detailButton}
-        onPress={() => navigation.navigate('AppointmentDetail', { appointment: item })}
+        onPress={() => navigation.navigate('PatientAppointmentDetail', { appointment: item })}
       >
         <Text style={styles.detailButtonText}>Ver Detalles</Text>
       </TouchableOpacity>
@@ -134,39 +134,35 @@ const DoctorAppointmentsScreen = () => {
   const renderEmptyList = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="calendar" size={50} color="#ccc" />
-      <Text style={styles.emptyText}>No hay citas programadas</Text>
+      <Text style={styles.emptyText}>No tienes citas programadas</Text>
     </View>
   );
 
   return (
     <LinearGradient colors={['#41dfbf', '#f4e9e9']} style={styles.container}>
-        <View style={styles.container}>
-            
-        
-        
+      <View style={styles.container}>
         {loading ? (
-            <View style={styles.loadingContainer}>
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#41dfbf" />
-            <Text style={styles.loadingText}>Cargando citas...</Text>
-            </View>
+            <Text style={styles.loadingText}>Cargando tus citas...</Text>
+          </View>
         ) : (
-            <FlatList
+          <FlatList
             data={appointments}
             renderItem={renderAppointmentItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContainer}
             ListEmptyComponent={renderEmptyList}
             refreshControl={
-                <RefreshControl 
+              <RefreshControl 
                 refreshing={refreshing} 
                 onRefresh={onRefresh}
                 colors={['#41dfbf']} 
-                />
+              />
             }
-            />
-        
+          />
         )}
-        </View>
+      </View>
     </LinearGradient>
   );
 };
@@ -174,7 +170,6 @@ const DoctorAppointmentsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    //backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
@@ -220,7 +215,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  patientName: {
+  doctorName: {
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -271,4 +266,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default DoctorAppointmentsScreen;
+export default PatientAppointmentsScreen;

@@ -85,8 +85,9 @@ const PatientDashboardScreen = () => {
     }
   };
 
-  const handleBookAppointment = (doctorId) => {
-    //navigation.navigate('BookAppointment', { doctorId, patientId });
+  const handleBookAppointment = (doctorId, doctorNombre, doctorApellido, doctorEspecialidad) => {
+    doctorNombreCompleto = `${doctorNombre} ${doctorApellido}`;
+    //navigation.navigate('BookAppointment', { doctorId, doctorNombreCompleto, doctorEspecialidad });
     Alert.alert("Funcionalidad en proceso");
     console.log("Funcionalidad en proceso");
   };
@@ -183,6 +184,21 @@ const PatientDashboardScreen = () => {
     });
   };
 
+  const handleViewAppointments = async () => {
+      if (!patientId) return;
+      
+      
+      const result = await PatientFeaturesController.getPatientAppointments(patientId);
+      if (result.success) {
+        navigation.navigate('PatientAppointments', { appointments: result.data });
+      } else {
+        Alert.alert('Error', result.message);
+        console.log('Error', result.message);
+      }
+      //Alert.alert("Funcionalidad en proceso");
+      //console.log("Funcionalidad en proceso");
+    };
+
   return (
     <LinearGradient colors={['#4a90e2', '#f4e9e9']} style={styles.container}>
       <ScrollView style={styles.scrollView}>
@@ -203,39 +219,13 @@ const PatientDashboardScreen = () => {
           )}
           
           {/* Mis Citas */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Mis Citas</Text>
-            
-            {appointments.length > 0 ? (
-              <FlatList
-                data={appointments}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={styles.appointmentCard}
-                    onPress={() => handleViewAppointmentDetails(item)}
-                  >
-                    <View style={styles.appointmentHeader}>
-                      <Text style={styles.appointmentDoctor}>Dr. {item.doctorName}</Text>
-                      <Text style={[
-                        styles.appointmentStatus,
-                        item.status === 'confirmada' ? styles.statusConfirmed : 
-                        item.status === 'cancelada' ? styles.statusCanceled : 
-                        styles.statusPending
-                      ]}>
-                        {item.status === 'confirmada' ? 'Confirmada' : 
-                         item.status === 'cancelada' ? 'Cancelada' : 'Pendiente'}
-                      </Text>
-                    </View>
-                    <Text style={styles.appointmentDate}>{formatDate(item.date)}</Text>
-                    <Text style={styles.appointmentSpecialty}>{item.specialty}</Text>
-                  </TouchableOpacity>
-                )}
-                style={styles.appointmentsList}
-              />
-            ) : (
-              <Text style={styles.noAppointments}>No tiene citas programadas</Text>
-            )}
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={handleViewAppointments}
+            >
+            <Text style={styles.buttonText}>Ver Citas</Text>
+            </TouchableOpacity>
           </View>
           
           {/* Buscador de doctores */}
@@ -251,7 +241,7 @@ const PatientDashboardScreen = () => {
               <TouchableOpacity style={styles.searchButton} onPress={handleSearchDoctors}>
                 <Text style={styles.searchButtonText}>Buscar</Text>
               </TouchableOpacity>
-            </View>
+          </View>
 
             {/* Resultados de búsqueda */}
             {searchResults.length > 0 ? (
@@ -267,7 +257,7 @@ const PatientDashboardScreen = () => {
                     </View>
                     <TouchableOpacity 
                       style={styles.bookButton}
-                      onPress={() => handleBookAppointment(item.id)}
+                      onPress={() => handleBookAppointment(item.id, item.firstName, item.lastName, item.specialty)}
                     >
                       <Text style={styles.bookButtonText}>Reservar</Text>
                     </TouchableOpacity>
@@ -444,6 +434,22 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  buttonsContainer: {
+    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    backgroundColor: '#41dfbf',
+    padding: 15,
+    borderRadius: 10,
+    width: '48%',
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   title: {
     fontSize: 24,

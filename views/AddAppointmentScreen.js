@@ -102,7 +102,7 @@ const AddAppointmentScreen = () => {
       nombrePaciente: patient.firstName || '',
       telefonoPaciente: patient.phone || '',
       correoPaciente: patient.email || '',
-      idpaciente: patient.uid || '',
+      idpaciente: patient.userId || '',
     }));
     setIsSearchModalVisible(false);
   };
