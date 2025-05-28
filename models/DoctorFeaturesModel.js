@@ -1,5 +1,5 @@
 // DoctorFeaturesModel.js
-import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, Timestamp, serverTimestamp, orderBy } from 'firebase/firestore';
 
 const db = getFirestore();
 
@@ -211,6 +211,286 @@ class DoctorFeaturesModel {
       return {
         success: false,
         message: error.message
+      };
+    }
+  }
+
+  /**
+   * Crear una nueva receta médica
+   * @param {Object} recetaData - Datos de la receta
+   * @returns {Promise<Object>} Resultado de la operación
+   */
+  async createPrescription(recetaData) {
+    try {
+      const {
+        idDoctor,
+        idPaciente,
+        nombrePaciente,
+        fecha,
+        medicamentos
+      } = recetaData;
+
+      // Validaciones básicas
+      if (!idDoctor || !idPaciente || !nombrePaciente) {
+        return {
+          success: false,
+          message: 'Faltan datos requeridos (doctor, paciente)'
+        };
+      }
+
+      if (!medicamentos || medicamentos.length === 0) {
+        return {
+          success: false,
+          message: 'Debe incluir al menos un medicamento'
+        };
+      }
+
+      // Validar que todos los medicamentos tengan los campos requeridos
+      const medicamentosValidos = medicamentos.every(med => 
+        med.nombre && med.cantidad && med.instrucciones
+      );
+
+      if (!medicamentosValidos) {
+        return {
+          success: false,
+          message: 'Todos los medicamentos deben tener nombre, cantidad e instrucciones'
+        };
+      }
+
+      // Estructura de datos para la receta
+      const recetaDocumento = {
+        idDoctor,
+        idPaciente,
+        nombrePaciente,
+        fecha: fecha || new Date(),
+        fechaCreacion: serverTimestamp(),
+        medicamentos: medicamentos.map(med => ({
+          nombre: med.nombre.trim(),
+          cantidad: med.cantidad.trim(),
+          instrucciones: med.instrucciones.trim()
+        })),
+        activa: true, // Campo para manejar si la receta está activa
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      // Guardar en Firestore
+      const recetasRef = collection(db, 'recetas');
+      const docRef = await addDoc(recetasRef, recetaDocumento);
+
+      return {
+        success: true,
+        message: 'Receta creada exitosamente',
+        data: {
+          idReceta: docRef.id,
+          ...recetaDocumento
+        }
+      };
+
+    } catch (error) {
+      console.error('Error al crear receta:', error);
+      return {
+        success: false,
+        message: 'Error al crear la receta: ' + error.message
+      };
+    }
+  }
+
+  /**
+   * Obtener todas las recetas de un doctor
+   * @param {string} doctorId - ID del doctor
+   * @returns {Object} - Resultado con las recetas
+   */
+  async getDoctorPrescriptions(doctorId) {
+    try {
+      if (!doctorId) {
+        return {
+          success: false,
+          message: 'ID del doctor es requerido'
+        };
+      }
+
+      // Consulta para obtener recetas del doctor ordenadas por fecha de creación
+      const prescriptionsRef = collection(db, 'recetas');
+      const q = query(
+        prescriptionsRef,
+        where('idDoctor', '==', doctorId),
+        where('activa', '==', true)
+      );
+
+      const querySnapshot = await getDocs(q);
+      const prescriptions = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        prescriptions.push({
+          idReceta: doc.id,
+          ...data
+        });
+      });
+
+      return {
+        success: true,
+        message: 'Recetas obtenidas exitosamente',
+        data: prescriptions
+      };
+
+    } catch (error) {
+      console.error('Error obteniendo recetas:', error);
+      return {
+        success: false,
+        message: 'Error al obtener las recetas: ' + error.message
+      };
+    }
+  }
+
+  /**
+   * Actualizar una receta existente
+   * @param {string} prescriptionId - ID de la receta a actualizar
+   * @param {Object} updatedData - Datos actualizados
+   * @returns {Object} - Resultado de la operación
+   */
+  async updatePrescription(prescriptionId, updatedData) {
+    try {
+      if (!prescriptionId) {
+        return {
+          success: false,
+          message: 'ID de la receta es requerido'
+        };
+      }
+
+      // Validar datos requeridos
+      if (!updatedData.medicamentos || updatedData.medicamentos.length === 0) {
+        return {
+          success: false,
+          message: 'Debe incluir al menos un medicamento'
+        };
+      }
+
+      // Verificar que la receta existe
+      const prescriptionRef = doc(db, 'recetas', prescriptionId);
+      const prescriptionSnap = await getDoc(prescriptionRef);
+
+      if (!prescriptionSnap.exists()) {
+        return {
+          success: false,
+          message: 'Receta no encontrada'
+        };
+      }
+
+      // Preparar datos para actualizar
+      const updateData = {
+        medicamentos: updatedData.medicamentos.map(med => ({
+          nombre: med.nombre.trim(),
+          cantidad: med.cantidad.trim(),
+          instrucciones: med.instrucciones.trim()
+        })),
+        fechaModificacion: serverTimestamp()
+      };
+
+      // Si se proporciona una nueva fecha, actualizarla
+      if (updatedData.fecha) {
+        updateData.fecha = updatedData.fecha instanceof Date ? 
+                           Timestamp.fromDate(updatedData.fecha) : 
+                           Timestamp.fromDate(new Date(updatedData.fecha));
+      }
+
+      // Actualizar en Firestore
+      await updateDoc(prescriptionRef, updateData);
+
+      return {
+        success: true,
+        message: 'Receta actualizada exitosamente'
+      };
+
+    } catch (error) {
+      console.error('Error actualizando receta:', error);
+      return {
+        success: false,
+        message: 'Error al actualizar la receta: ' + error.message
+      };
+    }
+  }
+
+  /**
+   * Eliminar una receta (soft delete)
+   * @param {string} prescriptionId - ID de la receta a eliminar
+   * @returns {Object} - Resultado de la operación
+   */
+  async deletePrescription(prescriptionId) {
+    try {
+      if (!prescriptionId) {
+        return {
+          success: false,
+          message: 'ID de la receta es requerido'
+        };
+      }
+
+      // Verificar que la receta existe
+      const prescriptionRef = doc(db, 'recetas', prescriptionId);
+      const prescriptionSnap = await getDoc(prescriptionRef);
+
+      if (!prescriptionSnap.exists()) {
+        return {
+          success: false,
+          message: 'Receta no encontrada'
+        };
+      }
+
+      // Soft delete - marcar como inactiva en lugar de eliminar
+      await updateDoc(prescriptionRef, {
+        activa: false,
+        fechaEliminacion: serverTimestamp()
+      });
+
+      return {
+        success: true,
+        message: 'Receta eliminada exitosamente'
+      };
+
+    } catch (error) {
+      console.error('Error eliminando receta:', error);
+      return {
+        success: false,
+        message: 'Error al eliminar la receta: ' + error.message
+      };
+    }
+  }
+
+  /**
+   * Obtener recetas de un paciente específico
+   * @param {string} pacienteId - ID del paciente
+   * @returns {Promise<Object>} Lista de recetas del paciente
+   */
+  async getPatientPrescriptions(pacienteId) {
+    try {
+      const recetasRef = collection(db, 'recetas');
+      const q = query(
+        recetasRef, 
+        where('idPaciente', '==', pacienteId),
+        orderBy('fechaCreacion', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const recetas = [];
+      
+      querySnapshot.forEach((doc) => {
+        recetas.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+
+      return {
+        success: true,
+        data: recetas
+      };
+
+    } catch (error) {
+      console.error('Error al obtener recetas del paciente:', error);
+      return {
+        success: false,
+        message: 'Error al obtener las recetas del paciente: ' + error.message
       };
     }
   }

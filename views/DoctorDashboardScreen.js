@@ -89,6 +89,14 @@ const DoctorDashboardScreen = () => {
     //console.log("Funcionalidad en proceso");
   };
 
+  const handleAddPrescription = () => {
+    navigation.navigate('AddPrescription');
+  }
+
+  const handleViewPrescriptions = () => {
+    navigation.navigate('ViewPrescription');
+  }
+
   // Función para abrir el modal de edición de perfil
   const handleEditProfile = () => {
     setIsEditProfileModalVisible(true);
@@ -176,20 +184,49 @@ const DoctorDashboardScreen = () => {
 
         {/* Botones de acciones */}
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={handleViewAppointments}
+          {/* Primera fila con dos botones */}
+          <View style={styles.rowButtons}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={handleViewAppointments}
+            >
+              <Text style={styles.buttonText}>Ver Citas</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={handleAddAppointment}
+            >
+              <Text style={styles.buttonText}>Agregar Cita</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.rowButtons}>
+            <TouchableOpacity 
+            style={[styles.actionButton]}
+            onPress={handleAddPrescription}
           >
-            <Text style={styles.buttonText}>Ver Citas</Text>
+            <Text style={styles.buttonText}>Agregar Receta</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={handleAddAppointment}
-          >
-            <Text style={styles.buttonText}>Agregar Cita</Text>
-          </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={handleViewPrescriptions}
+            >
+              <Text style={styles.buttonText}>Ver Recetas</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+
+          {/* Segunda fila con un solo botón 
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.singleButton]}
+            onPress={handleAddPrescription}
+          >
+            <Text style={styles.buttonText}>Agregar Receta</Text>
+          </TouchableOpacity>
+        </View>*/}
+
 
         {/* Botón de cerrar sesión */}
         <TouchableOpacity 
@@ -354,21 +391,26 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   buttonsContainer: {
-    marginTop: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  actionButton: {
-    backgroundColor: '#41dfbf',
-    padding: 15,
-    borderRadius: 10,
-    width: '48%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
+  marginTop: 20,
+},
+
+rowButtons: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 10,
+},
+
+actionButton: {
+  backgroundColor: '#41dfbf',
+  padding: 15,
+  borderRadius: 10,
+  width: '48%',
+  alignItems: 'center',
+},
+
+singleButton: {
+  width: '100%',
+},
 
   // Estilos para el botón de cerrar sesión
   logoutButton: {

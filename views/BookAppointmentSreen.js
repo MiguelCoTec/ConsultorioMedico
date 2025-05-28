@@ -1,419 +1,347 @@
+// BookAppointmentScreen.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TextInput,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Modal,
-  Platform
+  Modal
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { getAuth } from 'firebase/auth';
-import PatientFeaturesController from '../controllers/PatientFeaturesController';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { auth } from '../firebase';
+import PatientFeaturesController from '../controllers/PatientFeaturesController';
 
 const BookAppointmentScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { doctorId, doctorName, doctorSpecialty } = route.params || {};
-  const auth = getAuth();
-  const [loading, setLoading] = useState(false);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [isSlotModalVisible, setIsSlotModalVisible] = useState(false);
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const { doctorId, doctorNombreCompleto, doctorEspecialidad } = route.params;
+  
+  const [loading, setLoading] = useState(true);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [patientId] = useState(auth.currentUser?.uid);
 
-  // Estados para los campos del formulario
-  const [formData, setFormData] = useState({
-    idpaciente: auth.currentUser?.uid || '',
-    iddoctor: doctorId || '',
-    nombreDoctor: doctorName || '',
-    especialidad: doctorSpecialty || '',
-    fecha: new Date(new Date().setHours(new Date().getHours() + 1)),
-    motivo: '',
-    esVideoconsulta: false,
-    estatus: 'Pendiente',
-  });
-
-  // Estados para los pickers de fecha y hora
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState(null);
-
+  // Cargar fechas disponibles al iniciar
   useEffect(() => {
-    // Si hay un paciente autenticado, establecer su ID en el formulario
-    if (auth.currentUser) {
-      setFormData(prev => ({ ...prev, idpaciente: auth.currentUser.uid }));
-    }
-  }, [auth.currentUser]);
+    loadAvailableDates();
+  }, []);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (event.type === 'dismissed') {
-      return;
-    }
+  // Cargar horarios disponibles cuando se selecciona una fecha
+  useEffect(() => {
     if (selectedDate) {
-      // Mantener la hora actual cuando sólo se cambia la fecha
-      const currentTime = formData.fecha;
-      selectedDate.setHours(currentTime.getHours(), currentTime.getMinutes());
-      setFormData(prev => ({ ...prev, fecha: selectedDate }));
-      setSelectedSlot(null); // Reset selected slot when date changes
+      loadAvailableTimeSlots(selectedDate);
     }
-  };
+  }, [selectedDate]);
 
-  const handleTimeChange = (event, selectedTime) => {
-    setShowTimePicker(Platform.OS === 'ios');
-    if (event.type === 'dismissed') {
-      return;
-    }
-    if (selectedTime) {
-      // Mantener la fecha actual cuando sólo se cambia la hora
-      const newDate = new Date(formData.fecha);
-      newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
-      setFormData(prev => ({ ...prev, fecha: newDate }));
-      setSelectedSlot(null); // Reset selected slot when time changes manually
-    }
-  };
-
-  const fetchAvailableSlots = async () => {
-    if (!doctorId) {
-      Alert.alert('Error', 'No se ha seleccionado un doctor');
-      return;
-    }
-
-    try {
-      setLoadingSlots(true);
-      // Obtener solo la fecha sin la hora
-      const selectedDate = new Date(formData.fecha);
-      selectedDate.setHours(0, 0, 0, 0);
-      
-      const result = await PatientFeaturesController.getDoctorAvailableSlots(doctorId, selectedDate);
-      
-      if (result.success) {
-        setAvailableSlots(result.data);
-        setIsSlotModalVisible(true);
-      } else {
-        Alert.alert('Error', result.message || 'No hay horarios disponibles');
-      }
-    } catch (error) {
-      console.error('Error obteniendo horarios disponibles:', error);
-      Alert.alert('Error', 'Ocurrió un problema al buscar horarios disponibles');
-    } finally {
-      setLoadingSlots(false);
-    }
-  };
-
-  const selectTimeSlot = (slot) => {
-    const slotDate = new Date(slot.timestamp);
-    setFormData(prev => ({
-      ...prev,
-      fecha: slotDate
-    }));
-    setSelectedSlot(slot);
-    setIsSlotModalVisible(false);
-  };
-
-  const validateForm = () => {
-    // Validación básica
-    if (!formData.motivo.trim()) {
-      Alert.alert('Error', 'Por favor ingrese el motivo de la consulta');
-      return false;
-    }
-    
-    // Validar que la fecha sea futura
-    const now = new Date();
-    if (formData.fecha <= now) {
-      Alert.alert('Error', 'La fecha de la cita debe ser futura');
-      return false;
-    }
-    
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-
+  // Función para cargar las fechas disponibles del doctor
+  const loadAvailableDates = async () => {
     try {
       setLoading(true);
-      
-      // Asegurar que tenemos toda la información necesaria
-      if (!formData.iddoctor || !formData.idpaciente) {
-        throw new Error('Falta información esencial para crear la cita');
-      }
-
-      const result = await PatientFeaturesController.createAppointment(formData);
-      
+      const result = await PatientFeaturesController.getDoctorAvailableDates(doctorId);
       if (result.success) {
-        Alert.alert(
-          'Éxito', 
-          'Tu cita ha sido programada correctamente',
-          [
-            { 
-              text: 'Ver mis citas', 
-              onPress: () => navigation.navigate('MyAppointments')
-            },
-            {
-              text: 'Volver al inicio',
-              onPress: () => navigation.navigate('Home'),
-              style: 'cancel'
-            }
-          ]
-        );
+        // Organizar fechas en orden cronológico
+        const sortedDates = result.data.sort((a, b) => new Date(a) - new Date(b));
+        setAvailableDates(sortedDates);
       } else {
-        Alert.alert('Error', result.message || 'No se pudo crear la cita');
+        Alert.alert('Error', result.message || 'No se pudieron cargar las fechas disponibles');
       }
+      setLoading(false);
     } catch (error) {
-      console.error('Error creando cita:', error);
-      Alert.alert('Error', 'Ocurrió un problema al crear la cita');
-    } finally {
+      console.error('Error loading available dates:', error);
+      Alert.alert('Error', 'Ocurrió un error al cargar las fechas disponibles');
       setLoading(false);
     }
   };
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Función para cargar los horarios disponibles de una fecha específica
+  const loadAvailableTimeSlots = async (date) => {
+    try {
+      setLoading(true);
+      const result = await PatientFeaturesController.getDoctorAvailableTimeSlots(doctorId, date);
+      if (result.success) {
+        // Organizar horarios en orden cronológico
+        const sortedTimeSlots = result.data.sort((a, b) => {
+          const timeA = parseInt(a.split(':')[0]) * 60 + parseInt(a.split(':')[1]);
+          const timeB = parseInt(b.split(':')[0]) * 60 + parseInt(b.split(':')[1]);
+          return timeA - timeB;
+        });
+        setAvailableTimeSlots(sortedTimeSlots);
+      } else {
+        Alert.alert('Error', result.message || 'No se pudieron cargar los horarios disponibles');
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading available time slots:', error);
+      Alert.alert('Error', 'Ocurrió un error al cargar los horarios disponibles');
+      setLoading(false);
+    }
   };
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+  // Función para formatear la fecha para mostrarla
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('es-ES', options);
   };
 
-  // Agrupar slots por hora para mostrar en el modal
-  const renderTimeSlots = () => {
-    if (availableSlots.length === 0) {
-      return (
-        <Text style={styles.noSlots}>No hay horarios disponibles para esta fecha</Text>
-      );
+  // Función para formatear la hora para mostrarla
+  const formatTime = (timeString) => {
+    // Convierte el formato de 24h a 12h
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const formattedHour = hour % 12 || 12;
+    return `${formattedHour}:${minutes} ${period}`;
+  };
+
+  // Función para verificar si una fecha es hoy o en el futuro
+  const isDateValid = (dateString) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(dateString);
+    return date >= today;
+  };
+
+  // Función para manejar la selección de fecha
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    setSelectedTimeSlot(null); // Reiniciar la selección de horario
+  };
+
+  // Función para manejar la selección de horario
+  const handleTimeSlotSelect = (timeSlot) => {
+    setSelectedTimeSlot(timeSlot);
+  };
+
+  // Función para abrir el modal de confirmación
+  const handleOpenConfirmModal = () => {
+    if (!selectedDate || !selectedTimeSlot) {
+      Alert.alert('Error', 'Por favor seleccione una fecha y un horario para continuar');
+      return;
+    }
+    setConfirmModalVisible(true);
+  };
+
+  // Función para confirmar la cita
+  const handleConfirmAppointment = async () => {
+    if (!patientId || !doctorId || !selectedDate || !selectedTimeSlot) {
+      Alert.alert('Error', 'Faltan datos para reservar la cita');
+      return;
     }
 
-    return (
-      <View style={styles.slotsContainer}>
-        {availableSlots.map((slot, index) => {
-          const slotDate = new Date(slot.timestamp);
-          const slotTime = formatTime(slotDate);
-          
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.timeSlot,
-                selectedSlot && selectedSlot.id === slot.id && styles.selectedTimeSlot
-              ]}
-              onPress={() => selectTimeSlot(slot)}
-            >
-              <Text 
-                style={[
-                  styles.timeSlotText,
-                  selectedSlot && selectedSlot.id === slot.id && styles.selectedTimeSlotText
-                ]}
-              >
-                {slotTime}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
+    try {
+      setLoading(true);
+      setConfirmModalVisible(false);
+
+      const appointmentData = {
+        patientId,
+        doctorId,
+        doctorName: doctorNombreCompleto,
+        specialty: doctorEspecialidad,
+        date: new Date(`${selectedDate}T${selectedTimeSlot}`).toISOString(),
+        status: 'pendiente',
+      };
+
+      const result = await PatientFeaturesController.createAppointment(appointmentData);
+      
+      if (result.success) {
+        Alert.alert(
+          'Éxito',
+          'Su cita ha sido reservada correctamente',
+          [{ text: 'OK', onPress: () => navigation.navigate('PatientDashboard') }]
+        );
+      } else {
+        Alert.alert('Error', result.message || 'No se pudo reservar la cita');
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      Alert.alert('Error', 'Ocurrió un error al reservar la cita');
+      setLoading(false);
+    }
   };
 
+  // Agrupar fechas por mes para mejor visualización
+  const groupedDates = availableDates.reduce((groups, date) => {
+    const month = new Date(date).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    if (!groups[month]) {
+      groups[month] = [];
+    }
+    groups[month].push(date);
+    return groups;
+  }, {});
+
   return (
-    <LinearGradient colors={['#41dfbf', '#f4e9e9']} style={styles.container}>
-      <View style={styles.container}>
-        <ScrollView style={styles.content}>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Información del Doctor</Text>
-            
-            <View style={styles.doctorInfoContainer}>
-              <Ionicons name="person-outline" size={40} color="#41dfbf" style={styles.doctorIcon} />
-              <View style={styles.doctorDetails}>
-                <Text style={styles.doctorName}>Dr. {formData.nombreDoctor}</Text>
-                {formData.especialidad && (
-                  <Text style={styles.doctorSpecialty}>{formData.especialidad}</Text>
-                )}
-              </View>
+    <LinearGradient colors={['#4a90e2', '#f4e9e9']} style={styles.container}>
+      <ScrollView>
+        <View style={styles.content}>
+          <Text style={styles.title}>Reservar Cita</Text>
+          <View style={styles.doctorInfoCard}>
+            <Text style={styles.doctorName}>{doctorNombreCompleto}</Text>
+            <Text style={styles.doctorSpecialty}>{doctorEspecialidad}</Text>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4a90e2" />
+              <Text style={styles.loadingText}>Cargando información...</Text>
             </View>
-
-            <Text style={styles.sectionTitle}>Detalles de la Cita</Text>
-
-            <Text style={styles.inputLabel}>Fecha *</Text>
-            <TouchableOpacity 
-              style={styles.datePickerButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar-outline" size={20} color="#555" />
-              <Text style={styles.datePickerButtonText}>
-                {formatDate(formData.fecha)}
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={styles.inputLabel}>Hora *</Text>
-            <View style={styles.timeSelectionContainer}>
-              <TouchableOpacity 
-                style={styles.datePickerButton}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <Ionicons name="time-outline" size={20} color="#555" />
-                <Text style={styles.datePickerButtonText}>
-                  {formatTime(formData.fecha)}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.slotsButton}
-                onPress={fetchAvailableSlots}
-                disabled={loadingSlots}
-              >
-                {loadingSlots ? (
-                  <ActivityIndicator size="small" color="white" />
+          ) : (
+            <>
+              {/* Sección de selección de fecha */}
+              <View style={styles.sectionContainer}>
+                <Text style={styles.sectionTitle}>Seleccione una fecha</Text>
+                {Object.keys(groupedDates).length > 0 ? (
+                  Object.entries(groupedDates).map(([month, dates]) => (
+                    <View key={month} style={styles.monthContainer}>
+                      <Text style={styles.monthTitle}>{month}</Text>
+                      <View style={styles.datesGrid}>
+                        {dates.map((date) => {
+                          const isValid = isDateValid(date);
+                          const isSelected = selectedDate === date;
+                          return (
+                            <TouchableOpacity
+                              key={date}
+                              style={[
+                                styles.dateButton,
+                                isSelected && styles.selectedDateButton,
+                                !isValid && styles.disabledDateButton,
+                              ]}
+                              onPress={() => isValid && handleDateSelect(date)}
+                              disabled={!isValid}
+                            >
+                              <Text
+                                style={[
+                                  styles.dateText,
+                                  isSelected && styles.selectedDateText,
+                                  !isValid && styles.disabledDateText,
+                                ]}
+                              >
+                                {new Date(date).getDate()}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ))
                 ) : (
-                  <Text style={styles.slotsButtonText}>Ver horarios disponibles</Text>
+                  <Text style={styles.noAvailabilityText}>
+                    No hay fechas disponibles para este doctor
+                  </Text>
                 )}
-              </TouchableOpacity>
-            </View>
-
-            {selectedSlot && (
-              <View style={styles.selectedSlotContainer}>
-                <Text style={styles.selectedSlotText}>
-                  Horario seleccionado: {formatTime(new Date(selectedSlot.timestamp))}
-                </Text>
-                <TouchableOpacity onPress={() => setSelectedSlot(null)}>
-                  <Ionicons name="close-circle" size={20} color="#FF6B6B" />
-                </TouchableOpacity>
               </View>
-            )}
 
-            <Text style={styles.inputLabel}>Tipo de Consulta</Text>
-            <View style={styles.consultTypeContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.consultTypeOption,
-                  !formData.esVideoconsulta && styles.selectedConsultType
-                ]}
-                onPress={() => handleInputChange('esVideoconsulta', false)}
-              >
-                <Ionicons 
-                  name="medical-outline" 
-                  size={20} 
-                  color={!formData.esVideoconsulta ? "white" : "#555"} 
-                />
-                <Text 
-                  style={[
-                    styles.consultTypeText,
-                    !formData.esVideoconsulta && styles.selectedConsultTypeText
-                  ]}
-                >
-                  Presencial
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.consultTypeOption,
-                  formData.esVideoconsulta && styles.selectedConsultType
-                ]}
-                onPress={() => handleInputChange('esVideoconsulta', true)}
-              >
-                <Ionicons 
-                  name="videocam-outline" 
-                  size={20} 
-                  color={formData.esVideoconsulta ? "white" : "#555"} 
-                />
-                <Text 
-                  style={[
-                    styles.consultTypeText,
-                    formData.esVideoconsulta && styles.selectedConsultTypeText
-                  ]}
-                >
-                  Videoconsulta
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputLabel}>Motivo de la Consulta *</Text>
-            <TextInput
-              style={styles.textArea}
-              placeholder="Describa el motivo de su consulta"
-              value={formData.motivo}
-              onChangeText={(text) => handleInputChange('motivo', text)}
-              multiline
-              numberOfLines={4}
-            />
-
-            <TouchableOpacity 
-              style={styles.submitButton}
-              onPress={handleSubmit}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text style={styles.submitButtonText}>Confirmar Cita</Text>
+              {/* Sección de selección de horario */}
+              {selectedDate && (
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle}>
+                    Horarios disponibles para {formatDate(selectedDate)}
+                  </Text>
+                  {availableTimeSlots.length > 0 ? (
+                    <View style={styles.timeSlotsGrid}>
+                      {availableTimeSlots.map((timeSlot) => {
+                        const isSelected = selectedTimeSlot === timeSlot;
+                        return (
+                          <TouchableOpacity
+                            key={timeSlot}
+                            style={[
+                              styles.timeSlotButton,
+                              isSelected && styles.selectedTimeSlotButton,
+                            ]}
+                            onPress={() => handleTimeSlotSelect(timeSlot)}
+                          >
+                            <Text
+                              style={[
+                                styles.timeSlotText,
+                                isSelected && styles.selectedTimeSlotText,
+                              ]}
+                            >
+                              {formatTime(timeSlot)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <Text style={styles.noAvailabilityText}>
+                      No hay horarios disponibles para esta fecha
+                    </Text>
+                  )}
+                </View>
               )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
 
-        {/* Mostrar DatePicker */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={formData.fecha}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-            minimumDate={new Date()}
-          />
-        )}
-
-        {/* Mostrar TimePicker */}
-        {showTimePicker && (
-          <DateTimePicker
-            value={formData.fecha}
-            mode="time"
-            display="default"
-            onChange={handleTimeChange}
-            minuteInterval={15}
-          />
-        )}
-
-        {/* Modal de horarios disponibles */}
-        <Modal
-          visible={isSlotModalVisible}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Horarios Disponibles</Text>
-                <TouchableOpacity onPress={() => setIsSlotModalVisible(false)}>
-                  <Ionicons name="close" size={24} color="#333" />
+              {/* Botón para confirmar cita */}
+              {selectedDate && selectedTimeSlot && (
+                <TouchableOpacity
+                  style={styles.confirmButton}
+                  onPress={handleOpenConfirmModal}
+                >
+                  <Text style={styles.confirmButtonText}>Confirmar Cita</Text>
                 </TouchableOpacity>
-              </View>
+              )}
+
+              {/* Botón para volver */}
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+              >
+                <Text style={styles.backButtonText}>Volver</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Modal de confirmación */}
+      <Modal
+        visible={confirmModalVisible}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Confirmar Cita</Text>
+            
+            <View style={styles.modalInfoContainer}>
+              <Text style={styles.modalInfoLabel}>Doctor:</Text>
+              <Text style={styles.modalInfoValue}>{doctorNombreCompleto}</Text>
               
-              <Text style={styles.modalDate}>
-                Para el día {formatDate(formData.fecha)}
-              </Text>
+              <Text style={styles.modalInfoLabel}>Especialidad:</Text>
+              <Text style={styles.modalInfoValue}>{doctorEspecialidad}</Text>
               
-              <ScrollView style={styles.slotsList}>
-                {renderTimeSlots()}
-              </ScrollView>
+              <Text style={styles.modalInfoLabel}>Fecha:</Text>
+              <Text style={styles.modalInfoValue}>{selectedDate && formatDate(selectedDate)}</Text>
+              
+              <Text style={styles.modalInfoLabel}>Hora:</Text>
+              <Text style={styles.modalInfoValue}>{selectedTimeSlot && formatTime(selectedTimeSlot)}</Text>
+            </View>
+            
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setConfirmModalVisible(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.modalConfirmButton}
+                onPress={handleConfirmAppointment}
+              >
+                <Text style={styles.modalConfirmButtonText}>Confirmar</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -423,150 +351,152 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 15,
+    padding: 20,
   },
-  card: {
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#fff',
+  },
+  doctorInfoCard: {
     backgroundColor: 'white',
-    borderRadius: 10,
     padding: 15,
-    marginBottom: 15,
-    elevation: 2,
+    borderRadius: 10,
+    marginBottom: 20,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
+  },
+  doctorName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  doctorSpecialty: {
+    fontSize: 16,
+    fontStyle: 'italic',
+    color: '#666',
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#fff',
+    fontSize: 16,
+  },
+  sectionContainer: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
-    marginTop: 10,
-    color: '#333',
+    color: '#4a90e2',
   },
-  doctorInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    padding: 15,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#41dfbf',
+  monthContainer: {
+    marginBottom: 15,
   },
-  doctorIcon: {
-    marginRight: 15,
-  },
-  doctorDetails: {
-    flex: 1,
-  },
-  doctorName: {
-    fontSize: 18,
+  monthTitle: {
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
-  doctorSpecialty: {
-    fontSize: 14,
-    color: '#666',
-  },
-  inputLabel: {
-    fontSize: 14,
-    marginBottom: 5,
+    marginBottom: 10,
     color: '#555',
   },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 15,
-    backgroundColor: '#f9f9f9',
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  datePickerButton: {
+  datesGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 15,
-    backgroundColor: '#f9f9f9',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
   },
-  datePickerButtonText: {
-    marginLeft: 10,
-    color: '#333',
-  },
-  timeSelectionContainer: {
-    flexDirection: 'column',
-  },
-  slotsButton: {
-    backgroundColor: '#41dfbf',
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  slotsButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  selectedSlotContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#e8f5e9',
-    borderRadius: 5,
-    marginBottom: 15,
-  },
-  selectedSlotText: {
-    color: '#388e3c',
-    flex: 1,
-  },
-  consultTypeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  consultTypeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  dateButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  selectedConsultType: {
-    backgroundColor: '#41dfbf',
-    borderColor: '#41dfbf',
-  },
-  consultTypeText: {
-    marginLeft: 8,
-    color: '#555',
-  },
-  selectedConsultTypeText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  submitButton: {
-    backgroundColor: '#41dfbf',
-    padding: 15,
-    borderRadius: 5,
     alignItems: 'center',
-    marginTop: 20,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
+    margin: 5,
   },
-  submitButtonText: {
+  selectedDateButton: {
+    backgroundColor: '#4a90e2',
+  },
+  disabledDateButton: {
+    backgroundColor: '#e0e0e0',
+  },
+  dateText: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  selectedDateText: {
+    color: 'white',
+  },
+  disabledDateText: {
+    color: '#999',
+  },
+  timeSlotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  timeSlotButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    margin: 5,
+  },
+  selectedTimeSlotButton: {
+    backgroundColor: '#4a90e2',
+  },
+  timeSlotText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  selectedTimeSlotText: {
+    color: 'white',
+  },
+  noAvailabilityText: {
+    textAlign: 'center',
+    padding: 20,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  confirmButton: {
+    backgroundColor: '#2ecc71',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  confirmButtonText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
   },
-  
-  // Estilos para el modal
+  backButton: {
+    backgroundColor: '#95a5a6',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -578,56 +508,58 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     width: '90%',
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
+    maxWidth: 500,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-  },
-  modalDate: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 15,
+    marginBottom: 20,
     textAlign: 'center',
+    color: '#4a90e2',
   },
-  slotsList: {
-    maxHeight: 300,
+  modalInfoContainer: {
+    marginBottom: 20,
   },
-  slotsContainer: {
+  modalInfoLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  modalInfoValue: {
+    fontSize: 16,
+    color: '#555',
+    marginBottom: 15,
+  },
+  modalButtonsContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  timeSlot: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 12,
-    marginBottom: 10,
-    width: '30%',
+  modalCancelButton: {
+    backgroundColor: '#e74c3c',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    width: '45%',
     alignItems: 'center',
   },
-  selectedTimeSlot: {
-    backgroundColor: '#41dfbf',
-    borderColor: '#41dfbf',
-  },
-  timeSlotText: {
-    color: '#333',
-  },
-  selectedTimeSlotText: {
+  modalCancelButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 16,
   },
-  noSlots: {
-    textAlign: 'center',
-    padding: 20,
-    color: '#888',
+  modalConfirmButton: {
+    backgroundColor: '#2ecc71',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    width: '45%',
+    alignItems: 'center',
+  },
+  modalConfirmButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

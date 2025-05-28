@@ -237,6 +237,80 @@ class PatientFeaturesModel {
       };
     }
   }
+
+
+  /**
+   * Obtiene todas las recetas de un paciente específico
+   * @param {string} patientId - ID del paciente
+   * @returns {Object} - Resultado con las recetas del paciente
+   */
+  async getPatientPrescriptions(patientId) {
+    try {
+      if (!patientId) {
+        return {
+          success: false,
+          message: 'ID del paciente es requerido'
+        };
+      }
+
+      // Crear query para obtener recetas del paciente específico, ordenadas por fecha descendente
+      const prescriptionsQuery = query(
+        collection(db, 'recetas'),
+        where('idPaciente', '==', patientId),
+        where('activa', '==', true)
+      );
+
+      const querySnapshot = await getDocs(prescriptionsQuery);
+      
+      if (querySnapshot.empty) {
+        return {
+          success: true,
+          data: [],
+          message: 'No se encontraron recetas para este paciente'
+        };
+      }
+
+      const prescriptions = [];
+      
+      // Procesar cada receta y obtener información adicional del doctor si es necesario
+      for (const docSnapshot of querySnapshot.docs) {
+        const prescriptionData = {
+          idReceta: docSnapshot.id,
+          ...docSnapshot.data()
+        };
+
+        // Si no tenemos el nombre del doctor, intentar obtenerlo
+        if (!prescriptionData.nombreDoctor && prescriptionData.idDoctor) {
+          try {
+            const doctorDoc = await getDoc(doc(db, 'Doctores', prescriptionData.idDoctor));
+            if (doctorDoc.exists()) {
+              const doctorData = doctorDoc.data();
+              prescriptionData.nombreDoctor = `${doctorData.firstName || ''} ${doctorData.lastName || ''}`.trim();
+            }
+          } catch (doctorError) {
+            console.warn('No se pudo obtener información del doctor:', doctorError);
+            prescriptionData.nombreDoctor = 'Doctor no encontrado';
+          }
+        }
+
+        prescriptions.push(prescriptionData);
+      }
+
+      return {
+        success: true,
+        data: prescriptions,
+        message: `Se encontraron ${prescriptions.length} receta(s)`
+      };
+
+    } catch (error) {
+      console.error('Error obteniendo recetas del paciente:', error);
+      return {
+        success: false,
+        message: 'Error al obtener las recetas del paciente',
+        error: error.message
+      };
+    }
+  }
 }
 
 export default new PatientFeaturesModel();

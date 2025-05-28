@@ -36,6 +36,26 @@ class DoctorFeaturesController {
   async createAppointment(appointmentData) {
     return await this.model.createAppointment(appointmentData);
   }
+
+  async createPrescription(recetaData){
+    return await this.model.createPrescription(recetaData);
+  }
+
+  async getDoctorPrescriptions(doctorId){
+    return await this.model.getDoctorPrescriptions(doctorId);
+  }
+
+  async getPatientPrescriptions(pacienteId){
+    return await this.model.getPatientPrescriptions(pacienteId);
+  }
+
+  async updatePrescription(prescriptionId, updatedData){
+    return await this.model.updatePrescription(prescriptionId, updatedData);
+  }
+
+  async deletePrescription(prescriptionId){
+    return await this.model.deletePrescription(prescriptionId);
+  }
 }
 
 export default new DoctorFeaturesController();

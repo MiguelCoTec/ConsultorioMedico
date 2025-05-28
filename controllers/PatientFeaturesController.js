@@ -37,6 +37,10 @@ class PatientFeaturesController {
   async getPatientPrescriptions(patientId) {
     return await this.model.getPatientPrescriptions(patientId);
   }
+
+  async getPatientPrescriptions(patientId){
+    return await this.model.getPatientPrescriptions(patientId);
+  }
 }
 
 export default new PatientFeaturesController();

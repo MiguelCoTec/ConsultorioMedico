@@ -199,6 +199,10 @@ const PatientDashboardScreen = () => {
       //console.log("Funcionalidad en proceso");
     };
 
+  const handleViewPrescriptions = async () => {
+    navigation.navigate('ViewPatientPrescriptions');
+  }
+
   return (
     <LinearGradient colors={['#4a90e2', '#f4e9e9']} style={styles.container}>
       <ScrollView style={styles.scrollView}>
@@ -225,6 +229,13 @@ const PatientDashboardScreen = () => {
               onPress={handleViewAppointments}
             >
             <Text style={styles.buttonText}>Ver Citas</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={handleViewPrescriptions}
+            >
+            <Text style={styles.buttonText}>Ver Recetas</Text>
             </TouchableOpacity>
           </View>
           
