@@ -494,6 +494,65 @@ class DoctorFeaturesModel {
       };
     }
   }
+
+  // Obtener notificaciones del paciente
+  async getPatientNotifications(patientId) {
+    try {
+      const q = query(
+        collection(db, 'notifications'),
+        where('patientId', '==', patientId),
+        where('isRead', '==', false)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const notifications = [];
+      
+      querySnapshot.forEach((doc) => {
+        notifications.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+
+      // Ordenar por fecha (más recientes primero)
+      notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      return {
+        success: true,
+        data: notifications
+      };
+    } catch (error) {
+      console.error('Error getting notifications:', error);
+      return {
+        success: false,
+        message: 'Error al obtener las notificaciones'
+      };
+    }
+  }
+
+  // Marcar notificación como leída
+  static async markNotificationAsRead(notificationId) {
+    try {
+      const docRef = doc(db, 'notifications', notificationId);
+      await updateDoc(docRef, {
+        isRead: true,
+        readAt: new Date().toISOString()
+      });
+      
+      return {
+        success: true,
+        message: 'Notificación marcada como leída'
+      };
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      return {
+        success: false,
+        message: 'Error al marcar la notificación'
+      };
+    }
+  }
+
+  
 }
 
 export default new DoctorFeaturesModel();

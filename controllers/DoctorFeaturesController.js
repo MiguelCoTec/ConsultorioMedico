@@ -56,6 +56,14 @@ class DoctorFeaturesController {
   async deletePrescription(prescriptionId){
     return await this.model.deletePrescription(prescriptionId);
   }
+
+  async getPatientNotifications(patientId){
+    return await this.model.getPatientNotifications(patientId);
+  }
+
+  async markNotificationAsRead(notificationId){
+    return await this.model.markNotificationAsRead(notificationId);
+  }
 }
 
 export default new DoctorFeaturesController();

@@ -29,7 +29,7 @@ const LoginScreen = ({ navigation }) => {
     try{
       const result = await LoginController.login(email, password);
       if (result.success) {
-        Alert.alert('Éxito', result.message);
+        //Alert.alert('Éxito', result.message);
         //navigation.navigate('Home');
 
         if(result.rol === 'doctor'){
@@ -37,9 +37,9 @@ const LoginScreen = ({ navigation }) => {
         } else if(result.rol === 'paciente'){
           navigation.replace('PatientDashboard');
         } else if(result.rol === 'admin'){
-          navigation.replace('home');
+          navigation.replace('Home');
         } else{
-          navigation.replace('home');
+          navigation.replace('Home');
         }
 
       } else {

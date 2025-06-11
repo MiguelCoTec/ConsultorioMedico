@@ -285,10 +285,10 @@ const AddAppointmentScreen = () => {
                 numberOfLines={3}
             />
 
-            <Text style={styles.inputLabel}>Diagnostico</Text>
+            <Text style={styles.inputLabel}>Notas</Text>
             <TextInput
                 style={styles.textArea}
-                placeholder="Diagnostico"
+                placeholder="Notas"
                 value={formData.diagnostico}
                 onChangeText={(text) => handleInputChange('diagnostico', text)}
                 multiline

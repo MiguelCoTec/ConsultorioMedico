@@ -1,10 +1,12 @@
 // PatientDashboardScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, StyleSheet, TouchableOpacity, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, TextInput, Button, FlatList, StyleSheet, TouchableOpacity, Alert, Modal, ScrollView, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { auth } from '../firebase';
 import PatientFeaturesController from '../controllers/PatientFeaturesController';
+import { registerForPushNotificationsAsync, sendLocalNotification } from '../Notifications';
+
 
 const PatientDashboardScreen = () => {
   const navigation = useNavigation();
@@ -17,6 +19,10 @@ const PatientDashboardScreen = () => {
   const [isEditProfileModalVisible, setIsEditProfileModalVisible] = useState(false);
   const [isAppointmentDetailsModalVisible, setIsAppointmentDetailsModalVisible] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [isSmsModalVisible, setIsSmsModalVisible] = useState(false);
+  const [selectedDoctorPhone, setSelectedDoctorPhone] = useState('');
+  const [selectedDoctorName, setSelectedDoctorName] = useState('');
+  const [smsMessage, setSmsMessage] = useState('');
   
   const [editFormData, setEditFormData] = useState({
     firstName: '',
@@ -31,8 +37,39 @@ const PatientDashboardScreen = () => {
     if (patientId) {
       loadPatientProfile();
       loadPatientAppointments();
+      registerForPushNotificationsAsync(); // Solicitar permisos
+      checkAndNotify(); // Tu lógica personalizada
     }
   }, [patientId]);
+
+  const checkAndNotify = async () => {
+    try {
+      const apptResult = await PatientFeaturesController.getPatientAppointments(patientId);
+      const recetaResult = await PatientFeaturesController.getPatientPrescriptions(patientId);
+
+      const pendientes = apptResult.success ? apptResult.data.filter(c => c.estatus === 'Pendiente') : [];
+      const activas = recetaResult.success ? recetaResult.data.filter(r => r.activa) : [];
+      console.log(pendientes.length);
+      console.log(activas.length);
+
+      if (pendientes.length > 0) {
+        await sendLocalNotification(
+          'Citas pendientes',
+          `Tienes ${pendientes.length} cita(s) sin confirmar.`
+        );
+      }
+
+      if (activas.length > 0) {
+        await sendLocalNotification(
+          'Recetas activas',
+          `Tienes ${activas.length} receta(s) disponibles.`
+        );
+      }
+    } catch (error) {
+      console.error('Error verificando notificaciones:', error);
+    }
+  };
+
 
   const loadPatientProfile = async () => {
     try {
@@ -92,6 +129,95 @@ const PatientDashboardScreen = () => {
     console.log("Funcionalidad en proceso");
   };
 
+  // Función para hacer llamadas telefónicas
+  const handleCalling = async (phoneNumber) => {
+    if (!phoneNumber) {
+      Alert.alert('Error', 'Número de teléfono no disponible');
+      return;
+    }
+
+    // Limpiar el número de teléfono (remover espacios, guiones, etc.)
+    const cleanPhoneNumber = phoneNumber.replace(/[^\d+]/g, '');
+    
+    // Crear la URL para la llamada
+    const phoneUrl = `tel:${cleanPhoneNumber}`;
+
+    try {
+      // Verificar si el dispositivo puede hacer llamadas
+      const canCall = await Linking.canOpenURL(phoneUrl);
+      
+      // Mostrar confirmación antes de hacer la llamada
+      Alert.alert(
+        'Realizar llamada',
+        `¿Desea llamar al número ${phoneNumber}?`,
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+          {
+            text: 'Llamar',
+            onPress: () => {
+              Linking.openURL(phoneUrl).catch((error) => {
+                console.error('Error al realizar la llamada:', error);
+                Alert.alert('Error', 'No se pudo realizar la llamada');
+              });
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error checking call capability:', error);
+      Alert.alert('Error', 'Ocurrió un error al intentar realizar la llamada');
+    }
+  };
+
+  // Función para abrir el modal de SMS
+  const handleOpenSmsModal = (phoneNumber, doctorName) => {
+    if (!phoneNumber) {
+      Alert.alert('Error', 'Número de teléfono no disponible');
+      return;
+    }
+    
+    setSelectedDoctorPhone(phoneNumber);
+    setSelectedDoctorName(doctorName);
+    setSmsMessage('');
+    setIsSmsModalVisible(true);
+  };
+
+  // Función para enviar SMS
+  const handleSendSms = async () => {
+    if (!smsMessage.trim()) {
+      Alert.alert('Error', 'Por favor escriba un mensaje');
+      return;
+    }
+
+    if (!selectedDoctorPhone) {
+      Alert.alert('Error', 'Número de teléfono no disponible');
+      return;
+    }
+
+    // Limpiar el número de teléfono
+    const cleanPhoneNumber = selectedDoctorPhone.replace(/[^\d+]/g, '');
+    
+    // Crear la URL para SMS con el mensaje
+    const smsUrl = `sms:${cleanPhoneNumber}?body=${encodeURIComponent(smsMessage)}`;
+
+    try {
+      // Verificar si el dispositivo puede enviar SMS
+      const canSendSms = await Linking.canOpenURL(smsUrl);
+      
+      // Abrir la aplicación de SMS con el mensaje prellenado
+      await Linking.openURL(smsUrl);
+      setIsSmsModalVisible(false);
+      setSmsMessage('');
+      
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      Alert.alert('Error', 'Ocurrió un error al intentar enviar el mensaje');
+    }
+  };
+
   const handleViewAppointmentDetails = (appointment) => {
     setSelectedAppointment(appointment);
     setIsAppointmentDetailsModalVisible(true);
@@ -130,6 +256,11 @@ const PatientDashboardScreen = () => {
   };
 
   // Función para abrir el modal de edición de perfil
+  function parseDateFromDDMMYYYY(dateStr) {
+    const [day, month, year] = dateStr.split('/');
+    return new Date(`${year}-${month}-${day}`); // Formato ISO: yyyy-MM-dd
+  }
+
   const handleEditProfile = () => {
     setIsEditProfileModalVisible(true);
   };
@@ -215,7 +346,7 @@ const PatientDashboardScreen = () => {
               <Text style={styles.profileName}>{patientProfile.firstName} {patientProfile.lastName}</Text>
               <Text style={styles.profileInfo}>Email: {patientProfile.email}</Text>
               <Text style={styles.profileInfo}>Teléfono: {patientProfile.phone || 'No especificado'}</Text>
-              <Text style={styles.profileInfo}>Fecha de nacimiento: {patientProfile.birthDate ? new Date(patientProfile.birthDate).toLocaleDateString() : 'No especificada'}</Text>
+              <Text style={styles.profileInfo}>Fecha de nacimiento: {patientProfile.birthDate ? new Date(parseDateFromDDMMYYYY(patientProfile.birthDate)).toLocaleDateString() : 'No especificada'}</Text>
               <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
                 <Text style={styles.editProfileButtonText}>Editar Perfil</Text>
               </TouchableOpacity>
@@ -266,12 +397,22 @@ const PatientDashboardScreen = () => {
                       <Text style={styles.doctorSpecialty}>{item.specialty || 'No especificada'}</Text>
                       <Text style={styles.doctorContact}>Contacto: {item.phone || 'No disponible'}</Text>
                     </View>
-                    <TouchableOpacity 
-                      style={styles.bookButton}
-                      onPress={() => handleBookAppointment(item.id, item.firstName, item.lastName, item.specialty)}
-                    >
-                      <Text style={styles.bookButtonText}>Reservar</Text>
-                    </TouchableOpacity>
+                    
+                    <View style={styles.doctorButtonsContainer}>
+                      <TouchableOpacity
+                        style={styles.callButton}
+                        onPress={() => handleCalling(item.phone)}
+                      >
+                        <Text style={styles.buttonText}>Llamar</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.smsButton}
+                        onPress={() => handleOpenSmsModal(item.phone, `Dr. ${item.firstName} ${item.lastName}`)}
+                      >
+                        <Text style={styles.buttonText}>SMS</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               />
@@ -429,6 +570,56 @@ const PatientDashboardScreen = () => {
                 </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal para enviar SMS */}
+      <Modal
+        visible={isSmsModalVisible}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Enviar SMS</Text>
+            <Text style={styles.smsRecipient}>Para: {selectedDoctorName}</Text>
+            <Text style={styles.smsPhone}>Número: {selectedDoctorPhone}</Text>
+            
+            <Text style={styles.inputLabel}>Mensaje:</Text>
+            <TextInput
+              style={styles.smsTextArea}
+              value={smsMessage}
+              onChangeText={setSmsMessage}
+              placeholder="Escriba su mensaje aquí..."
+              multiline={true}
+              numberOfLines={6}
+              textAlignVertical="top"
+              maxLength={160}
+            />
+            
+            <Text style={styles.characterCount}>
+              {smsMessage.length}/160 caracteres
+            </Text>
+
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setIsSmsModalVisible(false);
+                  setSmsMessage('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.sendSmsButton}
+                onPress={handleSendSms}
+              >
+                <Text style={styles.sendSmsButtonText}>Enviar SMS</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -619,6 +810,31 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 12,
   },
+  doctorButtonsContainer: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  callButton: {
+    backgroundColor: '#4a90e2',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  smsButton: {
+    backgroundColor: '#2ecc71',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
   bookButton: {
     backgroundColor: '#4a90e2',
     paddingVertical: 8,
@@ -751,6 +967,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelApptButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  
+  // Estilos para el modal de SMS
+  smsRecipient: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#333',
+  },
+  smsPhone: {
+    fontSize: 14,
+    marginBottom: 15,
+    color: '#666',
+  },
+  smsTextArea: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
+    backgroundColor: '#f9f9f9',
+    height: 120,
+    textAlignVertical: 'top',
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'right',
+    marginBottom: 15,
+  },
+  sendSmsButton: {
+    backgroundColor: '#2ecc71',
+    padding: 12,
+    borderRadius: 5,
+    width: '45%',
+    alignItems: 'center',
+  },
+  sendSmsButtonText: {
     color: 'white',
     fontWeight: 'bold',
   },

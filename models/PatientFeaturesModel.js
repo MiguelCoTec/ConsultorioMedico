@@ -89,28 +89,65 @@ class PatientFeaturesModel {
   }
 
   async getPatientAppointments(patientId) {
-    try {
-      const appointmentsRef = collection(db, 'Citas');
-      const q = query(appointmentsRef, where('idpaciente', '==', patientId));
-      const querySnapshot = await getDocs(q);
-      
-      const appointments = [];
-      querySnapshot.forEach((doc) => {
-        appointments.push({ id: doc.id, ...doc.data() });
-      });
-      
-      return {
-        success: true,
-        data: appointments
-      };
-    } catch (error) {
-      console.error('Error getting patient appointments:', error);
-      return {
-        success: false,
-        message: error.message
-      };
-    }
+  try {
+    const appointmentsRef = collection(db, 'Citas');
+    const q = query(appointmentsRef, where('idpaciente', '==', patientId));
+    const querySnapshot = await getDocs(q);
+    
+    // Obtener las citas con información del doctor
+    const appointmentsWithDoctorInfo = await Promise.all(
+      querySnapshot.docs.map(async (appointmentDoc) => {
+        const appointmentData = appointmentDoc.data();
+        
+        // Inicializar datos del doctor por defecto
+        let doctorInfo = {
+          nombreDoctor: 'Doctor no encontrado',
+          especialidad: 'Especialidad no encontrada'
+        };
+        //console.log("Estacion 1");
+        // Si existe idDoctor, buscar información del doctor
+        if (appointmentData.iddoctor) {
+          console.log("Aqui entra");
+          try {
+            // Buscar el doctor por userId en la colección Doctores
+            const doctoresRef = collection(db, 'Doctores');
+            const doctorQuery = query(doctoresRef, where('userId', '==', appointmentData.iddoctor));
+            const doctorSnapshot = await getDocs(doctorQuery);
+            
+            if (!doctorSnapshot.empty) {
+              const doctorData = doctorSnapshot.docs[0].data();
+              // Concatenar nombre y apellido del doctor
+              const nombreCompleto = `${doctorData.firstName || ''} ${doctorData.lastName || ''}`.trim();
+              doctorInfo.nombreDoctor = nombreCompleto || 'Sin nombre';
+              doctorInfo.especialidad = doctorData.specialty;
+            }
+          } catch (doctorError) {
+            console.warn('Error obteniendo datos del doctor:', doctorError);
+            // Mantener el valor por defecto en caso de error
+          }
+        }
+
+        return {
+          id: appointmentDoc.id,
+          ...appointmentData,
+          nombreDoctor: doctorInfo.nombreDoctor,
+          especialidad: doctorInfo.especialidad
+        };
+      })
+    );
+    
+    return {
+      success: true,
+      data: appointmentsWithDoctorInfo
+    };
+  } catch (error) {
+    console.error('Error getting patient appointments:', error);
+    return {
+      success: false,
+      message: error.message
+    };
   }
+}
 
   async searchDoctors(searchTerm) {
     try {

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, FlatList, Button, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { auth } from '../firebase';
 import HomeController from '../controllers/HomeController';
 
 const HomeScreen = () => {
@@ -29,6 +30,16 @@ const HomeScreen = () => {
 
   const handleDoctorPress = (doctorId) => {
     navigation.navigate('EditDoctor', { doctorId });
+  };
+
+  const handleLogout = () => {
+    auth.signOut()
+      .then(() => {
+        navigation.replace('Login');
+      })
+      .catch(error => {
+        Alert.alert('Error', 'No se pudo cerrar sesión: ' + error.message);
+      });
   };
 
   const renderPatient = ({ item }) => (
@@ -92,6 +103,14 @@ const HomeScreen = () => {
           onPress={() => navigation.navigate(activeView === 'patients' ? 'AddPatient' : 'AddDoctor')}
         />
       </View>
+
+      {/* Botón de cerrar sesión */}
+      <TouchableOpacity 
+        style={styles.logoutButton}
+        onPress={handleLogout}
+      >
+        <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+      </TouchableOpacity>
     </LinearGradient>
   );
 };
@@ -137,6 +156,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // Estilos para el botón de cerrar sesión
+  logoutButton: {
+    backgroundColor: '#ff6b6b',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 
